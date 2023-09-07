@@ -11,11 +11,15 @@ This program is designed for Linux beginners to practice Linux commands.
 .
 
 # Get started
-``
-bash practice_linux.sh start
-``
+1. [git clone](https://github.com/jeyeihro/practice-linux.git)
+2. `cd practice-linux/src`
+3. `bash practice_linux.sh start`
 
-A new game is created upon installation
+Installation will be done at the same time the game is first started.
+
+Although `practice_linux.sh` is a stand-alone executable sh, it must be invoked in the directory where `practice_linux.sh` is stored.
+
+Bad Example: `bash src/practice_linux.sh start`
 
 # Start of game
 ``
@@ -29,7 +33,7 @@ A new game will be started
 bash practice_linux.sh end
 ``
 
-When you have solved the problem, execute this command. The answer is then automatically evaluated. If any part of the answer is incorrect, the game continues. If all answers are perfect, the game ends and a rank and score are recorded based on the time spent playing the game.
+When you have solved the game, execute this command. The answer is then automatically evaluated. If any part of the answer is incorrect, the game continues. If all answers are perfect, the game ends and a rank and score are recorded based on the time spent playing the game.
 
 # Other
 Several other features are available, such as redisplaying question text, displaying hints, showing previous high scores, and formatting game data.
