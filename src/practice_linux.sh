@@ -1,12 +1,198 @@
 #!/bin/bash
+# 
+# Script for generating exercises for Linux beginners
+# 
+# author: jeyeihro
+# https://github.com/jeyeihro/practice-linux
 #
-# Linux初心者用演習問題生成スクリプト
-#
+
+VERSION="1.0.0"
 
 game_dir=""
 declare -A already_generated
 declare -a random_strings
 temp_file=$(mktemp)
+
+declare -A messages
+messages=(
+    ["Uninstall the game."]="ゲームをアンインストールします。"
+    ["Are you sure you want to uninstall it?(Y/n)"]="アンインストールしてよろしいですか？（Y/n）"
+    ["Game uninstalled."]="ゲームをアンインストールしました。"
+    ["Canceled uninstallation."]="アンインストールをキャンセルしました。"
+    ["Enter Y or n."]="Yまたはnを入力してください。"
+    ["Now you can delete this sh file (practice_linux.sh) manually."]="あとはこのshファイル（practice_linux.sh）を手動で削除してください。"
+    ["Thank you for your playing."]="お疲れさまでした。"
+    ["Game not installed."]="ゲームがインストールされていません。"
+    ["execute './practice_linux.sh start'"]="./practice_linux.sh startでゲームを開始してください。"
+    ["This Application datas is going to be initiallized."]="アプリケーションデータを初期化します。"
+    ["The app directory already exists."]="既にアプリのディレクトリが存在します。"
+    ["All scores will be deleted."]="スコアはすべて削除されます。"
+    ["Are you sure you want to delete it?(Y/n)"]="削除してよろしいですか？（Y/n）"
+    ["The app directory has been deleted."]="ディレクトリを削除しました。"
+    ["Canceled."]="キャンセルしました。"
+    ["initiallizing...."]="初期化しています。"
+    ["Initialization completed."]="初期化が完了しました。"
+    ["Game records are reaching their limits."]="ゲームの記録が限界に達しています。"
+    ["to initialize all game data, or"]="を実行してすべてのゲームデータを初期化する、もしくは"
+    ["to delete unnecessary game data."]="を実行して不要なゲームデータを削除してください。"
+    ["Generating exercises... please wait a moment"]="問題を生成しています…しばらくお待ちください"
+    ["Generation completed."]="問題の生成が完了しました"
+    ["3. Dealing with directories and files"]="3. ディレクトリ・ファイルを扱う"
+    ["Perform the following operations in order."]="以下の操作を順番に行ってください"
+    ["3-1. copy file {} to directory {}."]="3-1. {}ファイルを{}ディレクトリへコピーしなさい。"
+    ["  copy source file: {}"]="  コピー元ファイル: {}"
+    ["  copy destination directory: {}"]="  コピー先ディレクトリ: {}"
+    ["3-2. move file {} to directory {}."]="3-2. {}ファイルを{}ディレクトリへ移動させなさい。"
+    ["  move source file: {}"]="  移動元ファイル: {}"
+    ["  move destination directory: {}"]="  移動先ディレクトリ: {}"
+    ["3-3. copy the entire directory {} under directory {}."]="3-3. {}ディレクトリを丸ごと{}ディレクトリの下へコピーしなさい。"
+    ["  copy source directory: {}"]="  コピー元ディレクトリ: {}"
+    ["3-4. rename directory {} to {}."]="3-4. {}ディレクトリを{}という名前に変更しなさい。"
+    ["  target directory: {}"]="  対象ディレクトリ: {}"
+    ["  directory name before change: {}"]="  変更前のディレクトリ名: {}"
+    ["  directory name after change: {}"]="  変更前のディレクトリ名: {}"
+    ["3-5. rename file {} to {}."]="3-5. {}ファイルを{}という名前に変更しなさい。"
+    ["  target file: {}"]="  対象ファイル: {}"
+    ["  file name before change: {}"]="  変更前のファイル名: {}"
+    ["  file name after change: {}"]="  変更前のファイル名: {}"
+    ["3-6. delete the following two files."]="3-6. 以下の2ファイルを削除しなさい。"
+    ["  1st file to be deleted: {}"]="  削除対象ファイル１つめ: {}"
+    ["  2nd file to be deleted: {}"]="  削除対象ファイル２つめ: {}"
+    ["3-7. create {} directory."]="3-7. {}ディレクトリを作成しなさい。"
+    ["  path: {}/{}/"]="  パス: {}/{}/"
+    ["3-8. move directory {} under the directory created in 3-7."]="3-8. {}ディレクトリを3-7で作成したディレクトリの下に移動させなさい。"
+    ["  directory to be moved: {}/"]="  移動対象のディレクトリ: {}/"
+    ["  destination directory: {}/{}/"]="  移動先のディレクトリ: {}/{}/"
+    ["3-9. delete the entire {} directory including all its files."]="3-9. {}ディレクトリを配下のファイルを含めて丸ごと削除しなさい。"
+    ["  directory to be deleted: {}"]="  削除対象ディレクトリ: {}"
+    ["3-10. Under 3-8's {}, create an empty file named {}."]="3-10. 3-8の{}の下に{}という空ファイルを作成しなさい。"
+    ["  target directory: {}/{}/{}/"]="  対象ディレクトリ: {}/{}/{}/"
+    ["3-11. Change the permissions of the {} directory to 711."]="3-11. {}ディレクトリのパーミッションを711に変更しなさい。"
+    ["Only change the permissions of the target directory and do not change the permissions of anything inside it."]="パーミッションの変更は対象ディレクトリのみとし対象ディレクトリ配下のパーミッションは変えないものとします。"
+    ["  target directory: {}/"]=" 対象ディレクトリ: {}/"
+    ["3-12. Change all the permissions under the {} directory to 700."]="3-12. {}ディレクトリ配下のパーミッションをすべて700に変更しなさい。"
+    ["The permission change also includes the target directory."]="パーミッションの変更は対象ディレクトリも含むものとします。"
+    ["3-13. Backup the {} file as {}.bak."]="3-13. {}ファイルを{}.bakという名前でバックアップしなさい。"
+    ["Additionally, please ensure the backup file retains the timestamp of the original file."]="なお、バックアップファイルはバックアップ元ファイルのタイムスタンプを保持する形にしてください。"
+    ["  target file for backup: {}/{}/{}/{}"]="  バックアップ対象のファイル: {}/{}/{}/{}"
+    ["  backup file after backup: {}/{}/{}/{}.bak"]="  バックアップ後のファイル: {}/{}/{}/{}.bak"
+    ["  backup condition: {} and {}.bak timestamps must be the same."]="  バックアップ条件: {}と{}.bakのタイムスタンプが同じでなければいけない"
+    ["3-14. The {} file contains the following information."]="3-14. {}ファイルには以下の情報が含まれています。"
+    ["Edit the value of Y to '999' and save."]="Yの値を「999」に編集して保存しなさい。"
+    ["  target file: {}/{}/{}/{}"]="  対象ファイル: {}/{}/{}/{}"
+    ["Move to {} and perform the following operations."]="{}へ移動して以下の操作を行ってください"
+    ["1. Examine the logs."]="1. ログを調べる"
+    ["The {} contains three days' worth of application logs."]="{}には3日分のアプリケーションログが格納されています。"
+    ["This log contains three pieces of information: 'IP address (v4)', 'executed command', and 'timestamp'."]="このログには「IPアドレス（v4）」「実行されたコマンド」「時刻」という3つの情報が含まれています。"
+    ["Identify the date and time when the {} command was executed in {}."]="{}コマンドが{}において実行された日付と時刻を特定しなさい。"
+    ["Once identified, please write your answer below in the YYYYMMDDHHMISS format (14-digit half-width number representing year, month, day, hour, minute, and second)."]="特定ができたらYYYYMMDDHHMISSの形式（年月日時分秒の14桁半角数字）にて回答を以下に記載しなさい。"
+    ["* If the answer directory does not exist, create it."]="* answerディレクトリがなければ作成すること"
+    ["* If the answer_log file does not exist, create it."]="* answer_logファイルがなければ作成すること"
+    ["* The content written in answer_log should only be YYYYMMDDHHMISS."]="* answer_logに記載する内容はYYYYMMDDHHMISSのみであること"
+    ["* Do not include line breaks in answer_log."]="* answer_logには改行を含めないこと"
+    ["2. Edit the sh."]="2. shを編集する"
+    ["There are several existing sh programs in {}, but none of them are operational."]="{}には既存のshプログラムがいくつか格納されていますが、いずれも動く状態にありません。"
+    ["Change the permissions to make the existing sh programs operational."]="既存のshプログラムを動かすためにパーミッションを変更してください。"
+    ["However, only change the Owner permissions so that only you can execute it."]="ただし、あなたのみが実行できるようにするためにOwnerパーミッションのみを変更してください。"
+    ["Do not change the Group permissions or Other permissions."]="Groupパーミッション、Otherパーミッションを変更してはいけません。"
+    ["Once the existing sh programs are operational, use them as a reference to create the following sh script file on your own."]="既存のshプログラムが動くようになったら、それを参考にして以下のshスクリプトファイルを自分で新規に作成してください。"
+    ["The only requirement for the sh program is that it can output 'ccc' to standard output."]="shプログラムの内容は標準出力に「ccc」と出力できる事のみが要件です。"
+    ["Set the permissions of this newly created sh script file to 764."]="この新規作成したshスクリプトファイルのパーミッションは764とします。"
+    ["You can review this question by running ./practice_linux.sh instructions."]="この問題文は./practice_linux.sh instructionsで読み返せます"
+    ["The game is now ready to begin."]="ゲームを始める準備ができました"
+    ["Are you ready to start? (Y/n)"]="開始してよろしいですか？（Y/n）"
+    ["The game start was cancelled."]="ゲーム開始をキャンセルしました。"
+    ["Please enter Y or n."]="Yまたはnを入力してください。"
+    ["There is an error in your answer."]="回答に誤りがあります。"
+    ["If you want a hint, please refer below."]="もしヒントが知りたい場合は以下をどうぞ"
+    ["(However, it's not guaranteed that you'll always receive a hint.)"]="（ただし確実にヒントが貰えるとは限りません）"
+    ["Correct!"]="正解！"
+    ["Congratulations!"]="おめでとうございます！"
+    ["There is no hint."]="ヒントはありません"
+    ["The game is not installed."]="ゲームがインストールされていません"
+    ["Please start the game with ./practice_linux.sh start."]="./practice_linux.sh startでゲームを開始してください"
+    ["The game has not been started."]="ゲームが開始されていません"
+    ["Please read the question carefully (Question {})."]="問題文をよく読みましょう（問{}）"
+    ["The date or time might be incorrect (Question 1)."]="日付か時間が違うかもしれません（問１）"
+    ["Did you delete any existing files? (Question 2)"]="既存のファイルを消していませんか？（問２）"
+    ["Is the permission of {} appropriate? Is the sh executable? Or did you change any unnecessary permissions? The default permission was {}. (Question 2)"]="{}のパーミッションが適切でないようです。shは実行できる状態ですか？もしくは余計なパーミッションを変更していませんか？デフォルトのパーミッションは{}でした。（問２）"
+    ["The permission of {} seems not appropriate. (Question {})"]="{}のパーミッションが適切でないようです。（問{}）"
+    ["{} is operational, but the output is not as expected. (Question 2)"]="{}は動く状態にありますが出力が期待通りではないです（問２）"
+    ["(Question 3) The expected directory does not seem to exist: {}"]="（問３）存在するべきディレクトリが存在していないようです: {}"
+    ["(Question 3) The unexpected directory seems to exist: {}"]="（問３）余計なディレクトリが存在しているようです: {}"
+    ["(Question 3) The expected file does not seem to exist: {}"]="（問３）存在するべきファイルが存在していないようです: {}"
+    ["(Question 3) The unexpected file seems to exist: {}"]="（問３）余計なファイルが存在しているようです: {}"
+    ["(Question 3) The timestamp of {} seems not appropriate."]="（問３）{}のタイムスタンプが適切でないようです"
+    ["(Question 3) The contents of {} seems not appropriate."]="（問３）{}のファイル内容が適切でないようです"
+    ["  *in progress*"]="  *実行中*"
+    ["No games exists"]="ゲームはありません"
+    ["Illegal data(.metadata not exists)"]="データ不正（.metadataなし）"
+    ["Illegal data(score not exists)"]="データ不正（scoreなし）"
+    ["Illegal data(start not exists)"]="データ不正（startなし）"
+    ["Incomplete"]="未完了"
+    ["Completed"]="完了"
+    ["No games have been completed"]="完了しているゲームがありません"
+    ["Game [{}] is going to be deleted."]="ゲーム「{}」を削除します。"
+    ["Are you sure you want to delete it?(Y/n)"]="削除してよろしいですか？（Y/n）"
+    ["{} has been deleted"]="ゲーム「{}」を削除しました。"
+    ["Cancelled deletion"]="削除をキャンセルしました。"
+    ["The game has been completed and cannot be checked out"]="そのゲームは完了済みのためチェックアウトできません"
+    ["[{}] checkout has been completed."]="[{}]のチェックアウトが完了しました。"
+    ["Data is invalid."]="データが不正です。"
+    ["Manually delete {}, or"]="{}を手動で削除する、もしくは"
+    ["Initialize the game data by executing ./practice_linux.sh format."]="./practice_linux.sh formatを実行してゲームデータを初期化してください。"
+    ["game: {}"]="ゲーム: {}"
+    ["start datetime: {}"]="開始日時: {}"
+    ["end   datetime: {}"]="終了日時: {}"
+    ["This game has not been completed and therefore has no score."]="このゲームは完了していないためスコアがありません。"
+    ["Required Time: {} hours {} minutes {} seconds"]="タイム: {}時間{}分{}秒"
+    ["Rank: {}"]="ランク: {}"
+    ["*** Running in debug mode ***"]="*** ただいまデバッグモードで作動中です ***"
+    ["*** Done with debug mode ***"]="*** このゲームはデバッグモードで行われました ***"
+)
+
+localize() {
+    local input_msg="$1"
+    ret=""
+
+    if [ ! -d "practice_linux" ]; then
+        ret=$input_msg
+    elif [ ! -d "practice_linux/.ini" ]; then
+        ret=$input_msg
+    elif [ -e "practice_linux/.ini/locale_ja" ]; then
+        local localized_msg=$(awk -F'=' -v msg="\"$input_msg\"" '$1 == msg { print $2 }' practice_linux/.ini/messages)
+        ret=${localized_msg//\"/}
+    else
+        ret=$input_msg
+    fi
+    echo "${ret}"
+}
+
+display_locale(){
+    exit_if_not_games
+
+    if [ -e "practice_linux/.ini/locale_ja" ]; then
+        echo "現在のロケールは日本語です。"
+    else
+        echo "The current locale is English."
+    fi
+}
+
+change_locale_en(){
+    exit_if_not_games
+
+    if [ -e "practice_linux/.ini/locale_ja" ]; then
+        rm -f "practice_linux/.ini/locale_ja"
+    fi
+    echo "Changed current locale to English."
+}
+
+change_locale_ja(){
+    exit_if_not_games
+
+    echo -n > "practice_linux/.ini/locale_ja"
+    echo "ロケールを日本語に変更しました。"
+}
 
 stock(){
     while [ ${#random_strings[@]} -lt 30 ]; do
@@ -31,103 +217,138 @@ pop(){
 }
 
 uninstall_app() {
+    exit_if_not_games
     while true; do
-        # 削除確認のプロンプト表示
-        echo "ゲームをアンインストールします。"
-        read -p "アンインストールしてよろしいですか？（Y/n）" yn
+        echo "$(localize "Uninstall the game.")"
+        read -p "$(localize "Are you sure you want to uninstall it?(Y/n)")" yn
         case $yn in
             [Yy]* )
-                # ディレクトリの削除
-                rm -rf practice_linux
                 echo ""
-                echo "ゲームをアンインストールしました。"
+                echo "$(localize "Game uninstalled.")"
                 break;;
             [Nn]* )
-                echo "アンインストールをキャンセルしました。"
+                echo "$(localize "Canceled uninstallation.")"
                 exit;;
-            * ) echo "Yまたはnを入力してください。";;
+            * ) 
+                echo "$(localize "Enter Y or n.")"
+                ;;
         esac
     done
 
-    echo "あとはこのshファイル（practice_linux.sh）を手動で削除してください。"
-    echo "お疲れさまでした。"
+    echo "$(localize "Now you can delete this sh file (practice_linux.sh) manually.")"
+    echo "$(localize "Thank you for your playing.")"
+
+    rm -rf practice_linux
+}
+
+select_locale(){
+    if [ ! -d "practice_linux/.ini" ]; then
+        echo "Game not installed."
+        echo "execute './practice_linux.sh start'"
+        exit
+    fi
+
+    while true; do
+        echo ""
+        echo "Choose your language."
+        echo "1. English  2.日本語"
+        echo ""
+        read -p "which?" lang
+        case $lang in
+            1)
+                break
+                ;;
+            2)
+                touch "practice_linux/.ini/locale_ja"
+                break
+                ;;
+            *)
+                echo ""
+                echo "illegal number."
+                echo ""
+                ;;
+        esac
+    done
+}
+
+create_messages(){
+    messages_path="practice_linux/.ini/messages"
+    echo -n > "${messages_path}"
+
+    for key in "${!messages[@]}"; do
+        echo "\"$key\"=\"${messages[$key]}\"" >> "${messages_path}"
+    done
 }
 
 initialize_app() {
-    echo "ゲームを初期化します。"
+    echo "$(localize "This Application datas is going to be initiallized.")"
     echo ""
     if [ -d "practice_linux" ]; then
         while true; do
-            # 削除確認のプロンプト表示
-            echo "既にアプリのディレクトリが存在します。"
-            echo "スコアはすべて削除されます。"
+            echo "$(localize "The app directory already exists.")"
+            echo "$(localize "All scores will be deleted.")"
             echo ""
-            read -p "削除してよろしいですか？（Y/n）" yn
+            read -p "$(localize "Are you sure you want to delete it?(Y/n)")" yn
             case $yn in
                 [Yy]* )
-                    # ディレクトリの削除
-                    rm -rf practice_linux
-                    echo "ディレクトリを削除しました。"
+                    echo "$(localize "The app directory has been deleted.")"
                     break;;
                 [Nn]* )
-                    echo "処理を終了します"
+                    echo "$(localize "Canceled.")"
                     exit;;
                 * ) 
                     echo ""
-                    echo "Yまたはnを入力してください。"
+                    echo "$(localize "Enter Y or n.")"
                     echo "";;
             esac
         done
+
+        rm -rf practice_linux
     else
-        echo "初期化中です。"
+        echo "$(localize "initiallizing....")"
     fi
 
-    # ディレクトリの作成
     mkdir -p practice_linux/games
-    echo "初期化処理が完了しました。"
+    mkdir -p practice_linux/.ini
+    
+    create_messages
+
+    echo "$(localize "Initialization completed.")"
 }
 
 initialize_game() {
     if [ ! -d "practice_linux" ]; then
-        echo "practice_linuxへようこそ！"
+        echo "Welcome to practice_linux!!(${VERSION})"
         initialize_app
+        select_locale
     fi
 
     games_root="practice_linux/games"
 
-    # gamesディレクトリの下の数値のみのディレクトリ名の最大値を取得
+    # Get the maximum number of directory names under the games directory that are numeric only
     max_game=$(ls "$games_root" | grep '^[0-9]*$' | sort -n | tail -1)
 
-    # max値が存在しない場合
     if [ -z "$max_game" ]; then
         max_game=0
     fi
 
-    # max値ディレクトリが存在する場合（その下に抜けがあろうが）ゲームを終了
+    # If the max value directory exists (even if there are omissions under it), the game ends.
     if [ "$max_game" -eq "999" ]; then
-        echo "ゲームの記録が限界に達しています。"
+        echo "$(localize "Game records are reaching their limits.")"
         echo ""
         echo "./practice_linux.sh format"
-        echo "を実行してすべてのゲームデータを初期化する、もしくは"
+        echo "$(localize "to initialize all game data, or")"
         echo ""
         echo "./practice_linux.sh score delete <number>"
-        echo "を実行して不要なゲームデータを削除してください。"
+        echo "$(localize "to delete unnecessary game data.")"
         exit
     fi
 
-    # 次の数値を計算
     next_game=$(printf "%03d" $((10#$max_game + 1)))
-
-    # ゲーム用ディレクトリを新規作成
     mkdir "${games_root}/${next_game}"
-    # グローバル変数を初期化
     game_dir="${games_root}/${next_game}"
-    # ロックファイルを生成
     echo $game_dir > practice_linux/practice_linux.lock
-
-    # ゲーム用ディレクトリのメタデータディレクトリを新規作成
     mkdir "${game_dir}/.metadata"
-    # 作成日時・作成者を保存
     local current_datetime=$(date "+%Y%m%d%H%M%S")
     local username=$(whoami)
     echo "$current_datetime" > ${game_dir}/.metadata/created_at
@@ -135,7 +356,6 @@ initialize_game() {
 }
 
 generate_directory_structure() {
-    # 各種デフォルトのディレクトリを生成
     mkdir -p "${game_dir}/.metadata/rand/origin"
     mkdir -p "${game_dir}/.metadata/rand/append"
     mkdir -p "${game_dir}/.metadata/rand/exists/file"
@@ -150,7 +370,6 @@ generate_directory_structure() {
     mkdir -p "${game_dir}/bin/a"
     mkdir -p "${game_dir}/bin/b"
     mkdir -p "${game_dir}/logs"
-    # 各種デフォルトのファイルを生成
     cat > ${game_dir}/bin/a/proc.sh <<EOF
 #!/bin/bash
 
@@ -168,35 +387,28 @@ EOF
 }
 
 generate_logs() {
-    # IPアドレスの定義数
     local NUM_IP=20
-    # 検索文字列の定義数
     local NUM_TRG=30
-    # 1ログファイル当たりの行数
     local NUM_LINES_PER_FILE=$((NUM_IP*NUM_TRG/3))
     declare -a ip_addresses
     declare -a log_strings
     declare -a log_entries
 
-    # IPアドレスのリストを生成
     for i in $(seq 1 $NUM_IP); do
         local ip="$(shuf -i 10-254 -n 1).$(shuf -i 10-254 -n 1).$(shuf -i 10-254 -n 1).$i"
         ip_addresses+=("$ip")
     done
 
-    # 検索文字列のリストを生成
     for i in $(seq 1 $NUM_TRG); do
         log_strings+=("hoge$(printf "%03d" $i)")
     done
 
-    # IPアドレスとログ文字列のペアを生成
     for ip in "${ip_addresses[@]}"; do
         for log_string in "${log_strings[@]}"; do
             log_entries+=("$ip $log_string")
         done
     done
 
-    # シャッフルして、結果を3つの配列に格納
     IFS=$'\n' read -d '' -r -a shuffled_logs < <(printf "%s\n" "${log_entries[@]}" | shuf && printf '\0')
 
     local yesterday=$(date --date="1 day ago" +%Y%m%d)
@@ -206,36 +418,29 @@ generate_logs() {
     for day in $two_days_before $day_before_yesterday $yesterday; do
         local filename="${game_dir}/logs/app.log.$day"
         
-        # 既存のログファイルが存在する場合はファイルを削除
         [ -f $filename ] && rm $filename
 
         local seconds=0
 
-        # ログを生成
         for i in $(seq 1 $NUM_LINES_PER_FILE); do
             local time=$(printf "%02d:%02d:%02d" $(($seconds / 3600)) $(($seconds % 3600 / 60)) $(($seconds % 60)))
             echo "${shuffled_logs[$i]} $time" >> $filename
             seconds=$((seconds + 4))
         done
 
-        # 次の日のログファイルのために使用済みのログエントリを配列から削除
         shuffled_logs=("${shuffled_logs[@]:$NUM_LINES_PER_FILE}")
     done
 
-    # ログファイルの中から正答をランダムに決定し、ファイルに保持
     local selected_entry=$(
     for file in "${game_dir}/logs/app.log.$two_days_before}" "${game_dir}/logs/app.log.$day_before_yesterday" "${game_dir}/logs/app.log.$yesterday"; do
         [ -f "$file" ] && awk '{print FILENAME " " $0}' "$file"
     done | shuf -n 1
     )
 
-    # 1つ目のフィールドの末尾8文字を取得
     part1=$(echo "$selected_entry" | awk '{print substr($1,length($1)-7,8)}')
 
-    # 4つ目のフィールドから`:`を取り除く
     part2=$(echo "$selected_entry" | awk '{gsub(":","",$4); print $4}')
 
-    # 2つの部分を結合
     result="${part1}${part2}"
 
     echo "$result" > "${game_dir}/.metadata/target_log_answer"
@@ -243,7 +448,6 @@ generate_logs() {
     echo "${selected_entry// /,}" > "${game_dir}/.metadata/target_log"    
 }
 
-# ディレクトリを作成
 create_directory() {
     local resourcekey=$1
     local resourcename=$2
@@ -254,7 +458,6 @@ create_directory() {
     set_origin "$resourcekey" "$resourcename" "$dirpath"
 }
 
-# 空ファイルを作成
 create_file(){
     local resourcekey=$1
     local resourcename=$2
@@ -358,10 +561,20 @@ create_modify(){
     echo "$path $contents" > "${game_dir}/.metadata/rand/modify/${key}"
 }
 
+bind_str(){
+    local template="$1"
+    shift
+
+    while [ "$#" -gt 0 ]; do
+        template=${template/\{\}/$1}
+        shift
+    done
+
+    echo "$template"
+}
+
 generate_quiz_files() {
-    # ランダム文字列を定義
     stock
-    # ディレクトリ名・ファイル名を初期化
     dir1=$(pop)
     dir2=$(pop)
     dir3=$(pop)
@@ -393,7 +606,6 @@ generate_quiz_files() {
     file13=$(pop)
     file14=$(pop)
 
-    # ディレクトリを配置
     create_directory "dir1" "$dir1" "$game_dir/$dir1"
     create_directory "subdir1" "$subdir1" "$game_dir/$dir1/$subdir1"
     create_directory "subdir2" "$subdir2" "$game_dir/$dir1/$subdir2"
@@ -409,7 +621,6 @@ generate_quiz_files() {
     create_directory "subsubdir5" "$subsubdir5" "$game_dir/$dir2/$subdir6/$subsubdir5"
     create_directory "subsubdir6" "$subsubdir6" "$game_dir/$dir2/$subdir6/$subsubdir6"
 
-    # ファイルを配置
     create_file "file1" "$file1" "$game_dir/$dir1/$subdir1"
     create_file "file2" "$file2" "$game_dir/$dir1/$subdir1"
     create_file "file3" "$file3" "$game_dir/$dir1/$subdir2"
@@ -423,86 +634,85 @@ generate_quiz_files() {
     create_file "file11" "$file11" "$game_dir/$dir2/$subdir6/$subsubdir5"
     create_file "file12" "$file12" "$game_dir/$dir2/$subdir6/$subsubdir6"
 
-    # 追加分を記録
     set_append "dir3" "$dir3"
     set_append "file13" "$file13"
     set_append "file14" "$file14"
     set_append "subsubdir7" "$subsubdir7"
 
-    # 問題文を作成
+    # Questions about files and directories
     instructions_rand="$game_dir/.metadata/instructions_rand"
     touch "$instructions_rand"
-    echo "3. ディレクトリ・ファイルを扱う" >> "$instructions_rand"
-    echo "以下の操作を順番に行ってください" >> "$instructions_rand"
+    echo "$(localize "3. Dealing with directories and files")" >> "$instructions_rand"
+    echo "$(localize "Perform the following operations in order.")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-1. $(get_origin_name 'file1')ファイルを$(get_origin_name 'subsubdir1')ディレクトリへコピーしなさい。" >> "$instructions_rand"
-    echo "  コピー元ファイル：$(get_origin_path 'file1')" >> "$instructions_rand"
-    echo "  コピー先ディレクトリ：$(get_origin_path 'subsubdir1')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-1. copy file {} to directory {}.")" "$(get_origin_name 'file1')" "$(get_origin_name 'subsubdir1')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  copy source file: {}")" "$(get_origin_path 'file1')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  copy destination directory: {}")" "$(get_origin_path 'subsubdir1')/")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-2. $(get_origin_name 'file7')ファイルを$(get_origin_name 'subsubdir4')ディレクトリへ移動させなさい。" >> "$instructions_rand"
-    echo "  移動元ファイル：$(get_origin_path 'file7')" >> "$instructions_rand"
-    echo "  移動先ディレクトリ：$(get_origin_path 'subsubdir4')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-2. move file {} to directory {}.")" "$(get_origin_name 'file7')" "$(get_origin_name 'subsubdir4')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  move source file: {}")" "$(get_origin_path 'file7')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  move destination directory: {}")" "$(get_origin_path 'subsubdir4')/")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-3. $(get_origin_name 'subsubdir3')ディレクトリを丸ごと$(get_origin_name 'subsubdir6')ディレクトリの下へコピーしなさい。" >> "$instructions_rand"
-    echo "  コピー元ディレクトリ：$(get_origin_path 'subsubdir3')/" >> "$instructions_rand"
-    echo "  コピー先ディレクトリ：$(get_origin_path 'subsubdir6')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-3. copy the entire directory {} under directory {}.")" "$(get_origin_name 'subsubdir3')" "$(get_origin_name 'subsubdir6')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  copy source directory: {}")" "$(get_origin_path 'subsubdir3')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  copy destination directory: {}")" "$(get_origin_path 'subsubdir6')/")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-4. $(get_origin_name 'subsubdir3')ディレクトリを$(get_append 'subsubdir7')という名前に変更しなさい。" >> "$instructions_rand"
-    echo "  対象ディレクトリ：$(get_origin_path 'subsubdir3')/" >> "$instructions_rand"
-    echo "  変更前のディレクトリ名：$(get_origin_name 'subsubdir3')" >> "$instructions_rand"
-    echo "  変更後のディレクトリ名：$(get_append 'subsubdir7')" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-4. rename directory {} to {}.")" "$(get_origin_name 'subsubdir3')" "$(get_append 'subsubdir7')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target directory: {}")" "$(get_origin_path 'subsubdir3')/")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  directory name before change: {}")" "$(get_origin_name 'subsubdir3')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  directory name after change: {}")" "$(get_append 'subsubdir7')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-5. $(get_origin_name 'file8')ファイルを$(get_append 'file13')という名前に変更しなさい。" >> "$instructions_rand"
-    echo "  対象ファイル：$(get_origin_path 'file8')" >> "$instructions_rand"
-    echo "  変更前のファイル名：$(get_origin_name 'file8')" >> "$instructions_rand"
-    echo "  変更後のファイル名：$(get_append 'file13')" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-5. rename file {} to {}.")" "$(get_origin_name 'file8')" "$(get_append 'file13')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target file: {}")" "$(get_origin_path 'file8')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  file name before change: {}")" "$(get_origin_name 'file8')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  file name after change: {}")" "$(get_append 'file13')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-6. 以下の2ファイルを削除しなさい。" >> "$instructions_rand"
-    echo "  削除対象ファイル１つめ：$(get_origin_path 'file1')" >> "$instructions_rand"
-    echo "  削除対象ファイル２つめ：$(get_origin_path 'file3')" >> "$instructions_rand"
+    echo "$(localize "3-6. delete the following two files.")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  1st file to be deleted: {}")" "$(get_origin_path 'file1')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  2nd file to be deleted: {}")" "$(get_origin_path 'file3')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-7. $(get_append 'dir3')ディレクトリを作成しなさい。" >> "$instructions_rand"
-    echo "  パス：${game_dir}/$(get_append 'dir3')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-7. create {} directory.")" "$(get_append 'dir3')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  path: {}/{}/")" "${game_dir}" "$(get_append 'dir3')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-8. $(get_origin_name 'subdir3')ディレクトリを3-7で作成したディレクトリの下に移動させなさい。" >> "$instructions_rand"
-    echo "  移動対象のディレクトリ：$(get_origin_path 'subdir3')/" >> "$instructions_rand"
-    echo "  移動先のディレクトリ：${game_dir}/$(get_append 'dir3')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-8. move directory {} under the directory created in 3-7.")" "$(get_origin_name 'subdir3')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  directory to be moved: {}/")" "$(get_origin_path 'subdir3')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  destination directory: {}/{}/")" "${game_dir}" "$(get_append 'dir3')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-9. $(get_origin_name 'subsubdir5')ディレクトリを配下のファイルを含めて丸ごと削除しなさい。" >> "$instructions_rand"
-    echo "  削除対象ディレクトリ：$(get_origin_path 'subsubdir5')" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-9. delete the entire {} directory including all its files.")" "$(get_origin_name 'subsubdir5')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  directory to be deleted: {}")" "$(get_origin_path 'subsubdir5')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-10. 3-8の$(get_origin_name 'subdir3')の下に$(get_append 'file14')という空ファイルを作成しなさい。" >> "$instructions_rand"
-    echo "  対象ディレクトリ：${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/" >> "$instructions_rand"
-    echo "  対象ファイル：$(get_append 'file14')" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-10. Under 3-8's {}, create an empty file named {}.")" "$(get_origin_name 'subdir3')" "$(get_append 'file14')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target directory: {}/{}/{}/")" "${game_dir}" "$(get_append 'dir3')" "$(get_origin_name 'subdir3')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target file: {}")" "$(get_append 'file14')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-11. $(get_origin_name 'subsubdir4')ディレクトリのパーミッションを711に変更しなさい。" >> "$instructions_rand"
-    echo "パーミッションの変更は対象ディレクトリのみとし対象ディレクトリ配下のパーミッションは変えないものとします。" >> "$instructions_rand"
-    echo "  対象ディレクトリ：$(get_origin_path 'subsubdir4')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-11. Change the permissions of the {} directory to 711.")" "$(get_origin_name 'subsubdir4')")" >> "$instructions_rand"
+    echo "$(localize "Only change the permissions of the target directory and do not change the permissions of anything inside it.")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target directory: {}/")" "$(get_origin_path 'subsubdir4')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-12. $(get_origin_name 'subsubdir6')ディレクトリ配下のパーミッションをすべて700に変更しなさい。" >> "$instructions_rand"
-    echo "パーミッションの変更は対象ディレクトリも含むものとします。" >> "$instructions_rand"
-    echo "  対象ディレクトリ：$(get_origin_path 'subsubdir6')/" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-12. Change all the permissions under the {} directory to 700.")" "$(get_origin_name 'subsubdir6')")" >> "$instructions_rand"
+    echo "$(localize "The permission change also includes the target directory.")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target directory: {}/")" "$(get_origin_path 'subsubdir6')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-13. $(get_origin_name 'file5')ファイルを$(get_origin_name 'file5').bakという名前でバックアップしなさい。" >> "$instructions_rand"
-    echo "なお、バックアップファイルはバックアップ元ファイルのタイムスタンプを保持する形にしてください。" >> "$instructions_rand"
-    echo "  バックアップ対象のファイル：${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_origin_name 'file5')" >> "$instructions_rand"
-    echo "  バックアップ後のファイル：${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_origin_name 'file5').bak" >> "$instructions_rand"
-    echo "  バックアップ条件：$(get_origin_name 'file5')と$(get_origin_name 'file5').bakのタイムスタンプが同じでなければいけない" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-13. Backup the {} file as {}.bak.")" "$(get_origin_name 'file5')" "$(get_origin_name 'file5')")" >> "$instructions_rand"
+    echo "$(localize "Additionally, please ensure the backup file retains the timestamp of the original file.")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target file for backup: {}/{}/{}/{}")" "${game_dir}" "$(get_append 'dir3')" "$(get_origin_name 'subdir3')" "$(get_origin_name 'file5')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  backup file after backup: {}/{}/{}/{}.bak")" "${game_dir}" "$(get_append 'dir3')" "$(get_origin_name 'subdir3')" "$(get_origin_name 'file5')")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  backup condition: {} and {}.bak timestamps must be the same.")" "$(get_origin_name 'file5')" "$(get_origin_name 'file5')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "3-14. $(get_origin_name 'file5')ファイルには以下の情報が含まれています。" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "3-14. The {} file contains the following information.")" "$(get_origin_name 'file5')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
     echo "X=1;Y=2;Z=3" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
-    echo "Yの値を「999」に編集して保存しなさい。" >> "$instructions_rand"
-    echo "  対象ファイル：${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_origin_name 'file5')" >> "$instructions_rand"
+    echo "$(localize "Edit the value of Y to '999' and save.")" >> "$instructions_rand"
+    echo "$(bind_str "$(localize "  target file: {}/{}/{}/{}")" "${game_dir}" "$(get_append 'dir3')" "$(get_origin_name 'subdir3')" "$(get_origin_name 'file5')")" >> "$instructions_rand"
     echo "" >> "$instructions_rand"
 
-    ## 問題文に合わせてデフォルト情報を加工する
-    # file5にのみデフォルト内容を追記
+    ## Processing default information to fit the practice statement
+    # Add default contents to file5 only
     echo "X=1;Y=2;Z=3" >> "$game_dir/$dir1/$subdir3/$file5"
 
-    ## 問題文の解答を作成する
-    # 存在チェック(directory)
+    ## Prepare answers to the practice statement.
+    # Existence check (directory)
     create_exists_dir "dir1" "$(get_origin_path 'dir1')"
     create_exists_dir "dir2" "$(get_origin_path 'dir2')"
     create_exists_dir "dir3" "${game_dir}/$(get_append 'dir3')"
@@ -519,12 +729,12 @@ generate_quiz_files() {
     create_exists_dir "subsubdir6" "$(get_origin_path 'subsubdir6')"
     create_exists_dir "subsubdir3" "$(get_origin_path 'subsubdir6')/$(get_origin_name 'subsubdir3')"
 
-    # 非存在チェック(directory)
+    # Non-existence check (directory)
     create_not_exists_dir "subdir3" "$(get_origin_path 'subdir3')"
     create_not_exists_dir "subsubdir3" "$(get_origin_path 'subsubdir3')"
     create_not_exists_dir "subsubdir5" "$(get_origin_path 'subsubdir5')"
 
-    # 存在チェック（file）
+    # Existence check (file)
     create_exists_file "file1" "$(get_origin_path 'subsubdir1')/$(get_origin_name 'file1')"
     create_exists_file "file2" "$(get_origin_path 'file2')"
     create_exists_file "file4" "$(get_origin_path 'file4')"
@@ -539,7 +749,7 @@ generate_quiz_files() {
     create_exists_file "file6" "${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_origin_name 'file6')"
     create_exists_file "file14" "${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_append 'file14')"
 
-    # 非存在チェック(file)
+    # Non-existence check (file)
     create_not_exists_file "file1" "$(get_origin_path 'file1')"
     create_not_exists_file "file3" "$(get_origin_path 'file3')"
     create_not_exists_file "file5" "$(get_origin_path 'file5')"
@@ -549,22 +759,22 @@ generate_quiz_files() {
     create_not_exists_file "file9" "$(get_origin_path 'file9')"
     create_not_exists_file "file11" "$(get_origin_path 'file11')"
 
-    # パーミッション(directory)
+    # Permission check (directory)
     create_permission_directory "subsubdir4" "$(get_origin_path 'subsubdir4')" "711"
     create_permission_directory "subsubdir6" "$(get_origin_path 'subsubdir6')" "700"
     create_permission_directory "subsubdir3" "$(get_origin_path 'subsubdir6')/$(get_origin_name 'subsubdir3')" "700"
     create_permission_directory "subsubdir3" "$(get_origin_path 'subsubdir6')/$(get_origin_name 'subsubdir3')/$(get_origin_name 'file9')" "700"
 
-    # パーミッション(file)
+    # Permission check (file)
     create_permission_file "file12" "$(get_origin_path 'file12')" "700"
 
-    # タイムスタンプ
+    # Timesamp check
     create_timestamp "file5.bak" "${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_origin_name 'file5').bak" "$(date -d @$(stat -c %Y $(get_origin_path 'file5')) +"%Y%m%d%H%M%S")"
 
-    # 内容変更
+    # Content Change check
     create_modify "file5" "${game_dir}/$(get_append 'dir3')/$(get_origin_name 'subdir3')/$(get_origin_name 'file5')" "X=1;Y=999;Z=3"
 
-    # 一時ファイルを削除
+    # Delete temporary files
     rm "$temp_file"
 }
 
@@ -573,40 +783,38 @@ generate_instructions() {
     touch "$instructions"
     echo "--------------------------------------------------" >> "$instructions"
     echo "" >> "$instructions"
-    echo "${game_dir}へ移動して以下の操作を行ってください" >> "$instructions"
+    echo "$(bind_str "$(localize "Move to {} and perform the following operations.")" "${game_dir}")" >> "$instructions"
     echo "" >> "$instructions"
-    # ログ問題
-    echo "1. ログを調べる" >> "$instructions"
-    echo "${game_dir}/logsには3日分のアプリケーションログが格納されています。" >> "$instructions"
-    echo "このログには「IPアドレス（v4）」「実行されたコマンド」「時刻」という3つの情報が含まれています。" >> "$instructions"
+    # Questions about logs
+    echo "$(localize "1. Examine the logs.")" >> "$instructions"
+    echo "$(bind_str "$(localize "The {} contains three days' worth of application logs.")" "${game_dir}/logs")" >> "$instructions"
+    echo "$(localize "This log contains three pieces of information: 'IP address (v4)', 'executed command', and 'timestamp'.")" >> "$instructions"
     IFS=',' read -ra LOGANSWER <<< "$(head -n 1 ${game_dir}/.metadata/target_log)"
-    echo "${LOGANSWER[1]}において${LOGANSWER[2]}コマンドが実行された日付と時刻を特定しなさい。" >> "$instructions"
+    echo "$(bind_str "$(localize "Identify the date and time when the {} command was executed in {}.")" "${LOGANSWER[2]}" "${LOGANSWER[1]}")" >> "$instructions"
     echo "" >> "$instructions"
-    echo "特定ができたらYYYYMMDDHHMISSの形式（年月日時分秒の14桁半角数字）にて回答を" >> "$instructions"
+    echo "$(localize "Once identified, please write your answer below in the YYYYMMDDHHMISS format (14-digit half-width number representing year, month, day, hour, minute, and second).")" >> "$instructions"
     echo "${game_dir}/answer/answer_log" >> "$instructions"
-    echo "に記載しなさい。" >> "$instructions"
-    echo "* answerディレクトリがなければ作成すること" >> "$instructions"
-    echo "* answer_logファイルがなければ作成すること" >> "$instructions"
-    echo "* answer_logに記載する内容はYYYYMMDDHHMISSのみであること" >> "$instructions"
-    echo "* answer_logには改行を含めないこと" >> "$instructions"
+    echo "$(localize "* If the answer directory does not exist, create it.")" >> "$instructions"
+    echo "$(localize "* If the answer_log file does not exist, create it.")" >> "$instructions"
+    echo "$(localize "* The content written in answer_log should only be YYYYMMDDHHMISS.")" >> "$instructions"
+    echo "$(localize "* Do not include line breaks in answer_log.")" >> "$instructions"
     echo "" >> "$instructions"
-    # sh問題
-    echo "2. shを編集する" >> "$instructions"
-    echo "${game_dir}/binには既存のshプログラムがいくつか格納されていますが、いずれも動く状態にありません。" >> "$instructions"
-    echo "既存のshプログラムを動かすためにパーミッションを変更してください。" >> "$instructions"
-    echo "ただし、あなたのみが実行できるようにするためにOwnerパーミッションのみを変更してください。" >> "$instructions"
-    echo "Groupパーミッション、Otherパーミッションを変更してはいけません。" >> "$instructions"
+    # Questions about sh
+    echo "$(localize "2. Edit the sh.")" >> "$instructions"
+    echo "$(bind_str "$(localize "There are several existing sh programs in {}, but none of them are operational.")" "${game_dir}/bin")" >> "$instructions"
+    echo "$(localize "Change the permissions to make the existing sh programs operational.")" >> "$instructions"
+    echo "$(localize "However, only change the Owner permissions so that only you can execute it.")" >> "$instructions"
+    echo "$(localize "Do not change the Group permissions or Other permissions.")" >> "$instructions"
     echo "" >> "$instructions"
-    echo "既存のshプログラムが動くようになったら、それを参考にして" >> "$instructions"
+    echo "$(localize "Once the existing sh programs are operational, use them as a reference to create the following sh script file on your own.")" >> "$instructions"
     echo "${game_dir}/bin/c/proc.sh" >> "$instructions"
-    echo "を自分で新規に作成してください。" >> "$instructions"
-    echo "shプログラムの内容は標準出力に「ccc」と出力できる事のみが要件です。" >> "$instructions"
-    echo "この新規作成したshプログラムのパーミッションは764とします。" >> "$instructions"
+    echo "$(localize "The only requirement for the sh program is that it can output 'ccc' to standard output.")" >> "$instructions"
+    echo "$(localize "Set the permissions of this newly created sh script file to 764.")" >> "$instructions"
     echo "" >> "$instructions"
-    # ファイル問題
+    # Questions about files and directories(prepared)
     cat "${game_dir}/.metadata/instructions_rand" >> "$instructions"
     echo "" >> "$instructions"
-    echo "この問題文は./practice_linux.sh instructionsで読み返せます" >> "$instructions"
+    echo "$(localize "You can review this question by running ./practice_linux.sh instructions.")" >> "$instructions"
     echo "" >> "$instructions"
     echo "--------------------------------------------------" >> "$instructions"
 }
@@ -614,25 +822,27 @@ generate_instructions() {
 ready_game() {
     while true; do
         echo ""
-        echo "ゲームを始める準備ができました"
-        read -p "開始してよろしいですか？（Y/n）" yn
+        echo "$(localize "The game is now ready to begin.")"
+        read -p "$(localize "Are you ready to start? (Y/n)")" yn
         case $yn in
             [Yy]* )
-                break;;
+                break
+                ;;
             [Nn]* )
+                echo "$(localize "The game start was cancelled.")"
                 rm -rf "$game_dir"
                 rm -f practice_linux/practice_linux.lock
-                echo "ゲーム開始をキャンセルしました。"
-                exit;;
-            * ) echo "Yまたはnを入力してください。";;
+                exit
+                ;;
+            * )
+                echo "$(localize "Please enter Y or n.")"
+                ;;
         esac
     done
 }
 
 start_game() {
-    # 入力を待つ
     ready_game
-    # .metadataの配下にstartファイルを作成
     touch "${game_dir}/.metadata/score/start"
 }
 
@@ -644,21 +854,23 @@ display_instructions() {
 
 continue_game() {
     echo ""
-    echo "回答に誤りがあります。"
+    echo "$(localize "There is an error in your answer.")"
     echo ""
-    echo "もしヒントが知りたい場合は"
+    echo "$(localize "If you want a hint, please refer below.")"
     echo "./practice_linux.sh hint"
-    echo "をどうぞ。"
-    echo "（ただし確実にヒントが貰えるとは限りません）"
+    echo "$(localize "(However, it's not guaranteed that you'll always receive a hint.)")"
     exit
 }
 
 end_game() {
-    echo "正解！"
-    echo "おめでとうございます！"
+    echo "$(localize "Correct!")"
+    echo "$(localize "Congratulations!")"
     echo ""
     path=$(head -n 1 practice_linux/practice_linux.lock)
     touch "${path}/.metadata/score/end"
+    if [ -e ".debug" ]; then
+        touch "${path}/.metadata/.debug"
+    fi
     number=$(echo -n "$path" | tail -c 3)
     display_score_base $number
     rm -f practice_linux/practice_linux.lock
@@ -683,22 +895,22 @@ display_hint() {
     if [ -e "${cur}/.metadata/hint" ]; then
         cat "${cur}/.metadata/hint"
     else
-        echo "ヒントはありません"
+        echo "$(localize "There is no hint.")"
     fi
 }
 
 exit_if_not_games(){
     if [ ! -d "practice_linux/games" ]; then
-        echo "ゲームがインストールされていません"
-        echo "./practice_linux.sh startでゲームを開始してください"
+        echo "$(localize "The game is not installed.")"
+        echo "$(localize "Please start the game with ./practice_linux.sh start.")"
         exit
     fi
 }
 
 exit_if_not_lock(){
     if [ ! -e "practice_linux/practice_linux.lock" ]; then
-        echo "ゲームが開始されていません"
-        echo "./practice_linux.sh startでゲームを開始してください"
+        echo "$(localize "The game has not been started.")"
+        echo "$(localize "Please start the game with ./practice_linux.sh start.")"
         exit
     fi
 }
@@ -711,19 +923,19 @@ validate_result_log(){
     local cur=$1
 
     if [ ! -d "${cur}/answer" ]; then
-        generate_hint "問題文をよく読みましょう（問１）"
+        generate_hint "$(bind_str "$(localize "Please read the question carefully (Question {}).")" "1")"
         continue_game
     fi
 
     if [ ! -e "${cur}/answer/answer_log" ]; then
-        generate_hint "問題文をよく読みましょう（問１）"
+        generate_hint "$(bind_str "$(localize "Please read the question carefully (Question {}).")" "1")"
         continue_game
     fi
     answer_log_user="$(head -n 1 ${cur}/answer/answer_log)"
     answer_log_correct="$(head -n 1 ${cur}/.metadata/target_log_answer)"
 
     if [ "${answer_log_user}" != "${answer_log_correct}" ]; then
-        generate_hint "日付か時間が違うかもしれません（問１）"
+        generate_hint "$(localize "The date or time might be incorrect (Question 1).")"
         continue_game
     fi
 
@@ -733,39 +945,39 @@ validate_result_sh(){
     local cur=$1
 
     if [ ! -e "${cur}/bin/a/proc.sh" ]; then
-        generate_hint "既存のファイルを消していませんか？（問２）"
+        generate_hint "$(localize "Did you delete any existing files? (Question 2)")"
         continue_game
     fi
     if [ ! -e "${cur}/bin/b/proc.sh" ]; then
-        generate_hint "既存のファイルを消していませんか？（問２）"
+        generate_hint "$(localize "Did you delete any existing files? (Question 2)")"
         continue_game
     fi
     per_a=$(stat -c "%a" "${cur}/bin/a/proc.sh")
     if [ "$per_a" != "724" ]; then
-        generate_hint "${cur}/bin/a/proc.shのパーミッションが適切でないようです。shは実行できる状態ですか？もしくは余計なパーミッションを変更していませんか？デフォルトのパーミッションは624でした。（問２）"
+        generate_hint "$(bind_str "$(localize "Is the permission of {} appropriate? Is the sh executable? Or did you change any unnecessary permissions? The default permission was {}. (Question 2)")" "${cur}/bin/a/proc.sh" "624")"
         continue_game
     fi
     per_b=$(stat -c "%a" "${cur}/bin/b/proc.sh")
     if [ "$per_b" != "742" ]; then
-        generate_hint "${cur}/bin/b/proc.shのパーミッションが適切でないようです。shは実行できる状態ですか？もしくは余計なパーミッションを変更していませんか？デフォルトのパーミッションは642でした。（問２）"
+        generate_hint "$(bind_str "$(localize "Is the permission of {} appropriate? Is the sh executable? Or did you change any unnecessary permissions? The default permission was {}. (Question 2)")" "${cur}/bin/b/proc.sh" "642")"
         continue_game
     fi
     if [ ! -d "${cur}/bin/c" ]; then
-        generate_hint "問題文をよく読みましょう（問２）"
+        generate_hint "$(bind_str "$(localize "Please read the question carefully (Question {}).")" "2")"
         continue_game
     fi
     if [ ! -e "${cur}/bin/c/proc.sh" ]; then
-        generate_hint "問題文をよく読みましょう（問２）"
+        generate_hint "$(bind_str "$(localize "Please read the question carefully (Question {}).")" "2")"
         continue_game
     fi
     per_c=$(stat -c "%a" "${cur}/bin/c/proc.sh")
     if [ "$per_c" != "764" ]; then
-        generate_hint "${cur}/bin/c/proc.shのパーミッションが適切でないようです。問題文をよく読みましょう（問２）"
+        generate_hint "$(bind_str "$(localize "The permission of {} seems not appropriate. (Question {})")" "${cur}/bin/c/proc.sh" "2")"
         continue_game
     fi
     output_c=$(./${cur}/bin/c/proc.sh)
     if [ "$output_c" != "ccc" ]; then
-        generate_hint "${cur}/bin/c/proc.shは動く状態にありますが出力が期待通りではないです（問２）"
+        generate_hint "$(bind_str "$(localize "{} is operational, but the output is not as expected. (Question 2)")" "${cur}/bin/c/proc.sh")"
         continue_game
     fi
 }
@@ -778,7 +990,7 @@ validate_result_file(){
         if [ -f "$file" ]; then
             exists_dir=$(head -n 1 ${file})
             if [ ! -d $exists_dir ]; then
-                generate_hint "（問３）存在するべきディレクトリが存在していないようです:${exists_dir}"
+                generate_hint "$(bind_str "$(localize "(Question 3) The expected directory does not seem to exist: {}")" "${exists_dir}")"
                 continue_game
             fi
         fi
@@ -789,7 +1001,7 @@ validate_result_file(){
         if [ -f "$file" ]; then
             exists_dir=$(head -n 1 ${file})
             if [ -d $exists_dir ]; then
-                generate_hint "（問３）余計なディレクトリが存在しているようです:${exists_dir}"
+                generate_hint "$(bind_str "$(localize "(Question 3) The unexpected directory seems to exist: {}")" "${exists_dir}")"
                 continue_game
             fi
         fi
@@ -800,7 +1012,7 @@ validate_result_file(){
         if [ -f "$file" ]; then
             exists_file=$(head -n 1 ${file})
             if [ ! -e $exists_file ]; then
-                generate_hint "（問３）存在するべきファイルが存在していないようです:${exists_file}"
+                generate_hint "$(bind_str "$(localize "(Question 3) The expected file does not seem to exist: {}")" "${exists_file}")"
                 continue_game
             fi
         fi
@@ -811,7 +1023,7 @@ validate_result_file(){
         if [ -f "$file" ]; then
             exists_file=$(head -n 1 ${file})
             if [ -e $exists_file ]; then
-                generate_hint "（問３）余計なファイルが存在しているようです:${exists_file}"
+                generate_hint "$(bind_str "$(localize "(Question 3) The unexpected file seems to exist: {}")" "${exists_file}")"
                 continue_game
             fi
         fi
@@ -824,7 +1036,7 @@ validate_result_file(){
             if [ -d "${GET[0]}" ]; then
                 permission=$(stat -c "%a" "${GET[0]}")
                 if [ "$permission" != "${GET[1]}" ]; then
-                    generate_hint "（問３）ディレクトリのパーミッションが違います:${GET[0]}"
+                    generate_hint "$(bind_str "$(localize "The permission of {} seems not appropriate. (Question {})")" "${GET[0]}" "3")"
                     continue_game
                 fi
             fi
@@ -838,7 +1050,7 @@ validate_result_file(){
             if [ -e "${GET[0]}" ]; then
                 permission=$(stat -c "%a" "${GET[0]}")
                 if [ "$permission" != "${GET[1]}" ]; then
-                    generate_hint "（問３）ファイルのパーミッションが違います:${GET[0]}"
+                    generate_hint "$(bind_str "$(localize "The permission of {} seems not appropriate. (Question {})")" "${GET[0]}" "3")"
                     continue_game
                 fi
             fi
@@ -852,7 +1064,7 @@ validate_result_file(){
             if [ -e "${GET[0]}" ]; then
                 timestamp=$(date -d @$(stat -c %Y ${GET[0]}) +"%Y%m%d%H%M%S")
                 if [ "$timestamp" != "${GET[1]}" ]; then
-                    generate_hint "（問３）ファイルのタイムスタンプが違います:${GET[0]}"
+                    generate_hint "$(bind_str "$(localize "(Question 3) The timestamp of {} seems not appropriate.")" "${GET[0]}")"
                     continue_game
                 fi
             fi
@@ -866,7 +1078,7 @@ validate_result_file(){
             if [ -e "${GET[0]}" ]; then
                 contents=$(head -n 1 ${GET[0]})
                 if [ "$contents" != "${GET[1]}" ]; then
-                    generate_hint "（問３）ファイルの内容が違います:${GET[0]}"
+                    generate_hint "$(bind_str "$(localize "(Question 3) The contents of {} seems not appropriate.")" "${GET[0]}")"
                     continue_game
                 fi
             fi
@@ -879,14 +1091,16 @@ validate_result_all() {
     exit_if_not_lock
     cur=$(get_lock)
     
-    # ログ
-    validate_result_log "${cur}"
+    if [ ! -e ".debug" ]; then
+        # log
+        validate_result_log "${cur}"
 
-    # sh
-    validate_result_sh "${cur}"
+        # sh
+        validate_result_sh "${cur}"
 
-    # ファイル
-    validate_result_file "${cur}"
+        # files and directories
+        validate_result_file "${cur}"
+    fi
 
     end_game
 
@@ -902,27 +1116,23 @@ display_score_list() {
         if [ -d "$dir" ]; then
             exists=$(basename "$dir")
             if [ "$processing" = "$dir" ];then
-                suffix="　*実行中*"
+                suffix="$(localize "  *in progress*")"
             else
                 suffix=""
             fi
             message=""
             dir_name=$(basename "$dir")
             
-            # .metadataディレクトリの存在チェック
             if [ ! -d "$dir/.metadata" ]; then
-                message="$dir_name: データ不正（.metadataなし）${suffix}"
-            # scoreディレクトリの存在チェック
+                message="$dir_name: $(localize "Illegal data(.metadata not exists)")${suffix}"
             elif [ ! -d "$dir/.metadata/score" ]; then
-                message="$dir_name: データ不正（scoreなし）${suffix}"
-            # startファイルの存在チェック
+                message="$dir_name: $(localize "Illegal data(score not exists)")${suffix}"
             elif [ ! -f "$dir/.metadata/score/start" ]; then
-                message="$dir_name: データ不正（startなし）${suffix}"
-            # endファイルの存在チェック
+                message="$dir_name: $(localize "Illegal data(start not exists)")${suffix}"
             elif [ ! -f "$dir/.metadata/score/end" ]; then
-                message="$dir_name: 未完了${suffix}"
+                message="$dir_name: $(localize "Incomplete")${suffix}"
             else
-                message="$dir_name: 完了${suffix}"
+                message="$dir_name: $(localize "Completed")${suffix}"
             fi
 
             echo $message
@@ -930,7 +1140,12 @@ display_score_list() {
     done
 
     if [ "$exists" = "" ]; then
-        echo "ゲームはありません"
+        echo "$(localize "No games exists")"
+    fi
+
+    if [ -e ".debug" ]; then
+        echo ""
+        echo "$(localize "*** Running in debug mode ***")"
     fi
 }
 
@@ -951,7 +1166,7 @@ display_score_latest(){
     done
 
     if [ "$score_exists" = "" ]; then
-        echo "完了しているゲームがありません"
+        echo "$(localize "No games have been completed")"
     else
         display_score_base $score_exists
     fi
@@ -961,12 +1176,12 @@ check_score(){
     local opt=$1
     exit_if_not_games
 
-    # 引数が0-9で構成されていない場合
+    # If the argument does not consist of 0-9
     if [[ ! $opt =~ ^[0-9]+$ ]]; then
         return 1
     fi
 
-    # practice_linux/games/数字のディレクトリがない場合
+    # If there is no practice_linux/games/number directory
     if [ ! -d "practice_linux/games/$opt" ]; then
         return 2
     fi
@@ -977,18 +1192,18 @@ check_score(){
 delete_score(){
     local opt=$1
     while true; do
-        echo "ゲーム「${opt}」を削除します。"
-        read -p "削除してよろしいですか？（Y/n）" yn
+        echo "$(bind_str "$(localize "Game [{}] is going to be deleted.")" "${opt}")"
+        read -p "$(localize "Are you sure you want to delete it?(Y/n)")" yn
         case $yn in
             [Yy]* )
+                echo "$(bind_str "$(localize "{} has been deleted")" "${opt}")"
                 rm -rf practice_linux/games/${opt}
-                echo "ゲーム「${opt}」を削除しました。"
                 break;;
             [Nn]* )
-                echo "削除をキャンセルしました。"
+                echo "$(localize "Cancelled deletion")"
                 exit;;
             * )
-                echo "Yまたはnを入力してください。";;
+                echo "$(localize "Enter Y or n.")";;
         esac
     done
 }
@@ -996,7 +1211,7 @@ delete_score(){
 checkout_score(){
     local opt=$1
     if [ -e "practice_linux/games/$opt/.metadata/score/end" ]; then
-        echo "そのゲームは完了済みのためチェックアウトできません"
+        echo "$(localize "The game has been completed and cannot be checked out")"
         exit
     fi
     
@@ -1005,9 +1220,9 @@ checkout_score(){
     fi
 
     echo "practice_linux/games/$opt" > practice_linux/practice_linux.lock
-    echo "${opt}のチェックアウトが完了しました。"
-    echo ""
     display_score_list
+    echo ""
+    echo "$(bind_str "$(localize "[{}] checkout has been completed.")" "${opt}")"
 }
 
 get_rank(){
@@ -1070,7 +1285,7 @@ display_highest_score(){
     done
 
     if [ "$exists" = "" ]; then
-        echo "完了しているゲームがありません"
+        echo "$(localize "No games have been completed")"
     else
         display_score_base $exists
     fi   
@@ -1093,39 +1308,41 @@ display_all_scores(){
     done
 
     if [ "$exists" = "" ]; then
-        echo "完了しているゲームがありません"
+        echo "$(localize "No games have been completed")"
     fi
 }
 
 display_score_base(){
     local number=$1
-    # 本関数は各種チェック済みでコールされること
+    # This function must be called with various checks
 
     game_dir_temp="practice_linux/games/$number/"
 
     if [ ! -e "${game_dir_temp}/.metadata/score/start" ]; then
-        echo "データが不正です。"
-        echo "${game_dir_temp}を手動で削除するか"
-        echo "./practice_linux.sh format"
-        echo "でゲームデータを初期化してください。"
+        echo "$(localize "Data is invalid.")"
+        echo "$(bind_str "$(localize "Manually delete {}, or")" "${game_dir_temp}")"
+        echo "$(localize "Initialize the game data by executing ./practice_linux.sh format.")"
         exit
     fi
 
-    start_formatted=$(date -r "${game_dir_temp}/.metadata/score/start" +"%Y年%m月%d日 %H:%M:%S")
+    start_formatted=$(date -r "${game_dir_temp}/.metadata/score/start" +"%Y/%m/%d %H:%M:%S")
 
     if [ ! -e "${game_dir_temp}/.metadata/score/end" ]; then
-        echo "ゲーム：${number}"
-        echo "開始日時：${start_formatted}"    
-        echo "このゲームは完了していないためスコアがありません。"
+        echo "$(bind_str "$(localize "game: {}")" "${number}")"
+        echo "$(bind_str "$(localize "start datetime: {}")" "${start_formatted}")"
+        echo "$(localize "This game has not been completed and therefore has no score.")"
+        if [ -e ".debug" ]; then
+            echo "$(localize "*** Running in debug mode ***")"
+        fi
         echo "---------------------------"
         exit
     fi
 
-    end_formatted=$(date -r "${game_dir_temp}/.metadata/score/end" +"%Y年%m月%d日 %H:%M:%S")
+    end_formatted=$(date -r "${game_dir_temp}/.metadata/score/end" +"%Y/%m/%d %H:%M:%S")
 
-    echo "ゲーム　：${number}"
-    echo "開始日時：${start_formatted}"
-    echo "終了日時：${end_formatted}"
+    echo "$(bind_str "$(localize "game: {}")" "${number}")"
+    echo "$(bind_str "$(localize "start datetime: {}")" "${start_formatted}")"
+    echo "$(bind_str "$(localize "end   datetime: {}")" "${end_formatted}")"
 
     start_timestamp=$(date -r "${game_dir_temp}/.metadata/score/start" +%s)
     end_timestamp=$(date -r "${game_dir_temp}/.metadata/score/end" +%s)
@@ -1136,16 +1353,19 @@ display_score_base(){
     minutes=$(((diff_seconds % 3600) / 60 ))
     seconds=$((diff_seconds % 60))
 
-    echo "タイム　：${hours}時間${minutes}分${seconds}秒"
+    echo "$(bind_str "$(localize "Required Time: {} hours {} minutes {} seconds")" "${hours}" "${minutes}" "${seconds}")"
 
     rank=$(get_rank "${hours}" "${minutes}" "${seconds}")
-    echo "ランク　：${rank}"
+    echo "$(bind_str "$(localize "Rank: {}")" "${rank}")"
+    if [ -e "${game_dir_temp}/.metadata/.debug" ]; then
+        echo "$(localize "*** Done with debug mode ***")"
+    fi
     echo "---------------------------"
 }
 
 display_usage(){
     echo ""
-    echo "Usage: ./practice_linux.sh {start|end|instructions|hint|score {list|all|<number>|highest|delete {<numbers>|}|}|checkout <numbers>|format|uninstall}"
+    echo "Usage: ./practice_linux.sh {start|end|instructions|hint|score {list|all|<number>|highest|delete {<numbers>|}|}|list|locale {en|ja|}|checkout <numbers>|format|uninstall|version}"
     echo ""
     echo "Options:"
     echo "start        : Start new game. Only the first time the game is launched, the initial setup of the game is performed at the same time."
@@ -1159,76 +1379,71 @@ display_usage(){
     echo "                - highest    : Show the highest score."
     echo "                - delete     : Delete all scores.(same as 'format') Can be combined with:"
     echo "                             - <number>   : Delete a specific score. You can get the list of numbers by 'score list'"
+    echo "list         : Alias for 'score list'"
+    echo "locale       : Show current locale. Can be combined with:"
+    echo "                - en         : Change locale to English."
+    echo "                - ja         : Change locale to Japanese."
     echo "checkout <n> : Switch to uncompleted game with specific game number. You can get the list of numbers by 'score list'"
     echo "format       : Delete all scores and this app is going to be refreshed."
     echo "uninstall    : Delete all game datas."
+    echo "version      : Display the version of practice_linux.sh"
     echo ""
     exit
 }
 
+display_app_version() {
+    echo "${VERSION}"
+}
 
-# メインの処理
 case $1 in
     start)
-        # ゲームの初期化
         initialize_game
-        # 問題生成
         echo ""
-        echo "問題を生成しています…しばらくお待ちください"
+        echo "$(localize "Generating exercises... please wait a moment")"
         generate_directory_structure
         generate_logs
         generate_quiz_files
         generate_instructions
-        echo "問題の生成が完了しました"
-        # ゲーム開始
+        echo "$(localize "Generation completed.")"
         start_game
-        # 設問表示
         display_instructions
         ;;
     instructions)
-        # 問題文を再表示
         display_instructions
         ;;
     hint)
-        # ヒントを表示
         display_hint
         ;;
     end)
-        # 回答を照合
         validate_result_all
         ;;
     format)
-        # アプリの初期化
         initialize_app
         ;;
     uninstall)
-        # アプリのアンインストール
         uninstall_app
         ;;
     score)
         case $2 in
             list)
-                # スコアのリスト表示
                 display_score_list
                 ;;
             all)
-                # すべてのスコアを表示
                 display_all_scores
                 ;;
             highest)
-                # 最高のスコアを表示
                 display_highest_score
                 ;;
             delete)
                 case $3 in
                     "")
-                        # formatと同じ
                         initialize_app
                         ;;
                     *)
                         check_score $3
                         ret=$?
                         if [ $ret -ne 0 ]; then
+                            # for debug
                             # echo "ret: $ret"
                             display_usage
                         fi
@@ -1237,17 +1452,36 @@ case $1 in
                 esac
                 ;;
             "")
-                # 直前のスコアを表示
                 display_score_latest
                 ;;
             *)
                 check_score $2
                 ret=$?
                 if [ $ret -ne 0 ]; then
+                    # for debug
                     # echo "ret: $ret"
                     display_usage
                 fi
                 display_score_base $2
+                ;;
+        esac
+        ;;
+    list)
+        display_score_list
+        ;;
+    locale)
+        case $2 in
+            "")
+                display_locale
+                ;;
+            en)
+                change_locale_en
+                ;;
+            ja)
+                change_locale_ja
+                ;;
+            *)
+                display_usage
                 ;;
         esac
         ;;
@@ -1266,6 +1500,13 @@ case $1 in
                 checkout_score $2
                 ;;
         esac
+        ;;
+    version)
+        display_app_version
+        ;;
+    cm)
+        # for debug option
+        create_messages
         ;;
     *)
         display_usage
