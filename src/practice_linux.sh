@@ -195,7 +195,11 @@ change_locale_ja(){
 }
 
 stock(){
-    while [ ${#random_strings[@]} -lt 30 ]; do
+    # logs is a reserved word
+    already_generated["logs"]=1
+    random_strings+="logs"
+
+    while [ ${#random_strings[@]} -lt 31 ]; do
         local random_string=$(openssl rand -base64 100 | tr -dc 'a-z' | head -c 4)
         if [ -z "${already_generated[$random_string]}" ]; then
             already_generated[$random_string]=1
@@ -208,8 +212,8 @@ stock(){
 pop(){
     read -ra random_strings < "$temp_file"
     if [ ${#random_strings[@]} -gt 0 ]; then
-        echo "${random_strings[0]}"
-        echo "${random_strings[@]:1}" > "$temp_file"
+        echo "${random_strings[-1]}"
+        echo "${random_strings[@]:0:${#random_strings[@]}-1}" > "$temp_file"
     else
         echo "Error: No more strings left!"
         exit 1
