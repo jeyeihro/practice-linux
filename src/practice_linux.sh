@@ -6,7 +6,7 @@
 # https://github.com/jeyeihro/practice-linux
 #
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 
 game_dir=""
 declare -A already_generated
@@ -141,14 +141,18 @@ messages=(
     ["Data is invalid."]="データが不正です。"
     ["Manually delete {}, or"]="{}を手動で削除する、もしくは"
     ["Initialize the game data by executing ./practice_linux.sh format."]="./practice_linux.sh formatを実行してゲームデータを初期化してください。"
-    ["game: {}"]="ゲーム: {}"
-    ["start datetime: {}"]="開始日時: {}"
-    ["end   datetime: {}"]="終了日時: {}"
+    ["Game          : {}"]="ゲーム      : {}"
+    ["Player        : {}"]="回答者      : {}"
+    ["Locale        : {}"]="言語　      : {}"
+    ["Start datetime: {}"]="開始日時    : {}"
+    ["End   datetime: {}"]="終了日時    : {}"
+    ["Required Time : {} hours {} minutes {} seconds"]="タイム      : {}時間{}分{}秒"
+    ["Rank          : {}"]="ランク      : {}"
     ["This game has not been completed and therefore has no score."]="このゲームは完了していないためスコアがありません。"
-    ["Required Time: {} hours {} minutes {} seconds"]="タイム: {}時間{}分{}秒"
-    ["Rank: {}"]="ランク: {}"
     ["*** Running in debug mode ***"]="*** ただいまデバッグモードで作動中です ***"
     ["*** Done with debug mode ***"]="*** このゲームはデバッグモードで行われました ***"
+    ["Japanese"]="日本語"
+    ["English"]="英語"
 )
 
 localize() {
@@ -195,7 +199,11 @@ change_locale_ja(){
 }
 
 stock(){
-    while [ ${#random_strings[@]} -lt 30 ]; do
+    # logs is a reserved word
+    already_generated["logs"]=1
+    random_strings+="logs"
+
+    while [ ${#random_strings[@]} -lt 31 ]; do
         local random_string=$(openssl rand -base64 100 | tr -dc 'a-z' | head -c 4)
         if [ -z "${already_generated[$random_string]}" ]; then
             already_generated[$random_string]=1
@@ -208,8 +216,8 @@ stock(){
 pop(){
     read -ra random_strings < "$temp_file"
     if [ ${#random_strings[@]} -gt 0 ]; then
-        echo "${random_strings[0]}"
-        echo "${random_strings[@]:1}" > "$temp_file"
+        echo "${random_strings[-1]}"
+        echo "${random_strings[@]:0:${#random_strings[@]}-1}" > "$temp_file"
     else
         echo "Error: No more strings left!"
         exit 1
@@ -353,6 +361,12 @@ initialize_game() {
     local username=$(whoami)
     echo "$current_datetime" > ${game_dir}/.metadata/created_at
     echo "$username" > ${game_dir}/.metadata/created_by
+
+    if [ -e practice_linux/.ini/locale_ja ]; then
+        echo "Japanese" > ${game_dir}/.metadata/locale
+    else
+        echo "English" > ${game_dir}/.metadata/locale
+    fi
 }
 
 generate_directory_structure() {
@@ -1316,7 +1330,7 @@ display_score_base(){
     local number=$1
     # This function must be called with various checks
 
-    game_dir_temp="practice_linux/games/$number/"
+    game_dir_temp="practice_linux/games/$number"
 
     if [ ! -e "${game_dir_temp}/.metadata/score/start" ]; then
         echo "$(localize "Data is invalid.")"
@@ -1328,8 +1342,10 @@ display_score_base(){
     start_formatted=$(date -r "${game_dir_temp}/.metadata/score/start" +"%Y/%m/%d %H:%M:%S")
 
     if [ ! -e "${game_dir_temp}/.metadata/score/end" ]; then
-        echo "$(bind_str "$(localize "game: {}")" "${number}")"
-        echo "$(bind_str "$(localize "start datetime: {}")" "${start_formatted}")"
+        echo "$(bind_str "$(localize "Game          : {}")" "${number}")"
+        echo "$(bind_str "$(localize "Player        : {}")" "$(head -n 1 "${game_dir_temp}/.metadata/created_by")")"
+        echo "$(bind_str "$(localize "Locale        : {}")" "$(localize "$(head -n 1 "${game_dir_temp}/.metadata/locale")")")"
+        echo "$(bind_str "$(localize "Start datetime: {}")" "${start_formatted}")"
         echo "$(localize "This game has not been completed and therefore has no score.")"
         if [ -e ".debug" ]; then
             echo "$(localize "*** Running in debug mode ***")"
@@ -1340,9 +1356,11 @@ display_score_base(){
 
     end_formatted=$(date -r "${game_dir_temp}/.metadata/score/end" +"%Y/%m/%d %H:%M:%S")
 
-    echo "$(bind_str "$(localize "game: {}")" "${number}")"
-    echo "$(bind_str "$(localize "start datetime: {}")" "${start_formatted}")"
-    echo "$(bind_str "$(localize "end   datetime: {}")" "${end_formatted}")"
+    echo "$(bind_str "$(localize "Game          : {}")" "${number}")"
+    echo "$(bind_str "$(localize "Player        : {}")" "$(head -n 1 "${game_dir_temp}/.metadata/created_by")")"
+    echo "$(bind_str "$(localize "Locale        : {}")" "$(localize "$(head -n 1 "${game_dir_temp}/.metadata/locale")")")"
+    echo "$(bind_str "$(localize "Start datetime: {}")" "${start_formatted}")"
+    echo "$(bind_str "$(localize "End   datetime: {}")" "${end_formatted}")"
 
     start_timestamp=$(date -r "${game_dir_temp}/.metadata/score/start" +%s)
     end_timestamp=$(date -r "${game_dir_temp}/.metadata/score/end" +%s)
@@ -1353,10 +1371,10 @@ display_score_base(){
     minutes=$(((diff_seconds % 3600) / 60 ))
     seconds=$((diff_seconds % 60))
 
-    echo "$(bind_str "$(localize "Required Time: {} hours {} minutes {} seconds")" "${hours}" "${minutes}" "${seconds}")"
+    echo "$(bind_str "$(localize "Required Time : {} hours {} minutes {} seconds")" "${hours}" "${minutes}" "${seconds}")"
 
     rank=$(get_rank "${hours}" "${minutes}" "${seconds}")
-    echo "$(bind_str "$(localize "Rank: {}")" "${rank}")"
+    echo "$(bind_str "$(localize "Rank          : {}")" "${rank}")"
     if [ -e "${game_dir_temp}/.metadata/.debug" ]; then
         echo "$(localize "*** Done with debug mode ***")"
     fi
