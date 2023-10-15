@@ -6,7 +6,7 @@
 # https://github.com/jeyeihro/practice-linux
 #
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 
 game_dir=""
 declare -A already_generated
@@ -153,6 +153,7 @@ messages=(
     ["*** Done with debug mode ***"]="*** このゲームはデバッグモードで行われました ***"
     ["Japanese"]="日本語"
     ["English"]="英語"
+    ["An irregularity with the game has been detected."]="ゲームの不正が検知されました。"
 )
 
 localize() {
@@ -876,11 +877,34 @@ continue_game() {
     exit
 }
 
+validate_validate() {
+    local cur=$1
+
+    if [ ! -e ".debug" ]; then
+        if [ ! -e "${cur}/.metadata/validate_result_log" ]; then
+            echo "$(localize "An irregularity with the game has been detected.")"
+            exit 1
+        fi
+
+        if [ ! -e "${cur}/.metadata/validate_result_sh" ]; then
+            echo "$(localize "An irregularity with the game has been detected.")"
+            exit 1
+        fi
+
+        if [ ! -e "${cur}/.metadata/validate_result_file" ]; then
+            echo "$(localize "An irregularity with the game has been detected.")"
+            exit 1
+        fi
+    fi
+}
+
 end_game() {
+    path=$(head -n 1 practice_linux/practice_linux.lock)
+    validate_validate "${path}"
     echo "$(localize "Correct!")"
     echo "$(localize "Congratulations!")"
     echo ""
-    path=$(head -n 1 practice_linux/practice_linux.lock)
+    
     touch "${path}/.metadata/score/end"
     if [ -e ".debug" ]; then
         touch "${path}/.metadata/.debug"
@@ -953,6 +977,7 @@ validate_result_log(){
         continue_game
     fi
 
+    touch "${cur}/.metadata/validate_result_log"
 }
 
 validate_result_sh(){
@@ -994,6 +1019,8 @@ validate_result_sh(){
         generate_hint "$(bind_str "$(localize "{} is operational, but the output is not as expected. (Question 2)")" "${cur}/bin/c/proc.sh")"
         continue_game
     fi
+
+    touch "${cur}/.metadata/validate_result_sh"
 }
 
 validate_result_file(){
@@ -1099,6 +1126,7 @@ validate_result_file(){
         fi
     done
 
+    touch "${cur}/.metadata/validate_result_file"
 }
 
 validate_result_all() {
